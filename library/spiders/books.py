@@ -22,11 +22,32 @@ class BooksSpider(scrapy.Spider):
             yield scrapy.Request(next_page, callback=self.parse)
 
     @staticmethod
-    def _get_numeric_amount(amount: str) -> int:
+    def _get_title(response: Response) -> str:
+        return response.css(".product_main > h1::text").get()
+
+    @staticmethod
+    def _get_numeric_price(response: Response) -> float:
+        return float(response.css("p.price_color::text").get().replace("£", ""))
+
+    @staticmethod
+    def _get_category(response: Response) -> str:
+        return response.css(".breadcrumb > li > a::text").getall()[2]
+
+    @staticmethod
+    def _get_description(response: Response) -> str:
+        return response.css(".product_page > p::text").get()
+
+    @staticmethod
+    def _get_upc(response: Response) -> str:
+        return response.css("table.table-striped td::text")[0].get()
+
+    @staticmethod
+    def _get_numeric_amount(response: Response) -> int:
+        amount = response.css("p.instock.availability").get()
         return int(re.search(r"\d+", amount).group())
 
     @staticmethod
-    def _get_numeric_rating(rating: str) -> int:
+    def _get_numeric_rating(response: Response) -> int:
         numbers = {
             "One": 1,
             "Two": 2,
@@ -34,15 +55,16 @@ class BooksSpider(scrapy.Spider):
             "Four": 4,
             "Five": 5,
         }
+        rating = response.css("p.star-rating::attr(class)").get().split()[1]
         return numbers.get(rating)
 
     def _get_one_book(self, response: Response):
         return Book(
-            title=response.css(".product_main > h1::text").get(),
-            price=float(response.css("p.price_color::text").get().replace("£", "")),
-            amount_in_stock=self._get_numeric_amount(response.css("p.instock.availability").get()),
-            rating=self._get_numeric_rating(response.css('p.star-rating::attr(class)').get().split()[1]),
-            category=response.css(".breadcrumb > li > a::text").getall()[2],
-            description=response.css(".product_page > p::text").get(),
-            upc=response.css("table.table-striped td::text")[0].get()
+            title=self._get_title(response=response),
+            price=self._get_numeric_price(response=response),
+            amount_in_stock=self._get_numeric_amount(response=response),
+            rating=self._get_numeric_rating(response=response),
+            category=self._get_category(response=response),
+            description=self._get_description(response=response),
+            upc=self._get_upc(response=response)
         )
